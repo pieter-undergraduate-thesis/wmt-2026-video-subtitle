@@ -1,0 +1,16 @@
+{
+  "_comment": "Merge this entry into LLaMA-Factory/data/dataset_info.json. Place the JSON produced by convert_to_sharegpt.py at LLaMA-Factory/data/wmt26_subtitle_sft.json.",
+  "wmt26_subtitle_sft": {
+    "file_name": "wmt26_subtitle_sft.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }
+}

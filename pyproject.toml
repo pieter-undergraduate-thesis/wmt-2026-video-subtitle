@@ -1,0 +1,23 @@
+[project]
+name = "wmt26-subtitle"
+version = "0.1.0"
+description = "WMT26 Constrained Video Subtitle Translation (zh -> en/th/id/ms/zh-TW) on Hy-MT2"
+requires-python = ">=3.10"
+dependencies = [
+    "srt>=3.5",
+    "openai>=1.0",          # vLLM exposes an OpenAI-compatible server
+    "sacrebleu>=2.4",
+    "unbabel-comet>=2.2",
+]
+
+[project.optional-dependencies]
+# vLLM is heavy and GPU-only; keep it out of the base install so eval/io work CPU-side.
+serve = ["vllm>=0.6"]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
