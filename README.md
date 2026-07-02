@@ -4,6 +4,12 @@ Constrained-track system for WMT26 video subtitle translation: **Chinese (Simpli
 English, Thai, Indonesian, Malay, Chinese (Traditional)**. Base model **Hy-MT2-7B** (≤20B
 param cap), served via vLLM. Output is `.srt` named `vid_langshort.srt`.
 
+## Docs
+
+- [docs/TASK_BRIEF.md](docs/TASK_BRIEF.md) — start here: what the task is, why Hy-MT2, the 3-phase plan
+- [docs/PIPELINE.md](docs/PIPELINE.md) — module-by-module implementation reference
+- [docs/TEAM.md](docs/TEAM.md) — who owns what, handoff contracts, milestones, open items
+
 ## Layout
 
 | Path | What |
@@ -15,6 +21,7 @@ param cap), served via vLLM. Output is `.srt` named `vid_langshort.srt`.
 | `src/wmt26/context.py` | rolling translated-cue context + synopsis injection w/ fallback |
 | `src/wmt26/pipeline.py` | end-to-end srt → translate → constrain → srt |
 | `src/wmt26/eval.py` | BLEU/chrF (sacrebleu) + COMET + violation rate |
+| `src/wmt26/metadata.py` | loads `<vid>_metadata.json` synopsis paired with `<vid>_zh.srt` |
 | `scripts/` | `serve.sh`, `zero_shot_translate.py`, `run_pipeline.py`, `run_eval.py` |
 | `finetune/` | sharegpt converter + LoRA train wrapper (Phase B, LLaMA-Factory) |
 
@@ -32,11 +39,12 @@ pip install -e ".[serve]"      # + vLLM (GPU)
 bash scripts/serve.sh                      # vLLM on :8000
 
 # 2. zero-shot baseline over a dir of source .srt, all 5 langs
+#    (auto-loads each video's paired <vid>_metadata.json for context)
 python scripts/zero_shot_translate.py --in data/test --out out
 
 # 3. full Phase C pipeline on one file (rolling context + constraints)
-python scripts/run_pipeline.py --in data/test/vid.srt --out out/vid_en.srt \
-    --lang en --synopsis "A courtroom drama set in 1990s Hong Kong."
+#    --synopsis overrides metadata auto-load; omit to use the paired metadata file
+python scripts/run_pipeline.py --in data/test/vid.srt --out out/vid_en.srt --lang en
 
 # 4. score against references
 python scripts/run_eval.py --src data/src --hyp out --ref data/ref
