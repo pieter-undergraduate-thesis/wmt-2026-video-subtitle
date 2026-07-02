@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from wmt26.metadata import synopsis_for_srt
 from wmt26.pipeline import translate_srt
 
 
@@ -21,7 +22,9 @@ def main() -> None:
     p.add_argument("--synopsis", default=None)
     a = p.parse_args()
 
-    out = translate_srt(str(a.in_path), str(a.out_path), a.lang, synopsis=a.synopsis)
+    # Manual --synopsis overrides; otherwise use the video's own metadata.
+    synopsis = a.synopsis or synopsis_for_srt(a.in_path)
+    out = translate_srt(str(a.in_path), str(a.out_path), a.lang, synopsis=synopsis)
     print(f"wrote {a.out_path} ({len(out)} cues)")
 
 
