@@ -25,7 +25,7 @@ def run(in_dir: Path, out_dir: Path, langs: list[str], synopsis: str | None) -> 
         raise SystemExit(f"no .srt files in {in_dir}")
 
     for srt_path in srt_files:
-        vid = srt_path.stem
+        vid = srt_path.stem.rsplit("_", 1)[0]  # a0046jl5d6d_zh -> a0046jl5d6d
         cues = parse_srt(str(srt_path))
         # Manual --synopsis overrides; otherwise use the video's own metadata.
         syn = synopsis or synopsis_for_srt(srt_path)
