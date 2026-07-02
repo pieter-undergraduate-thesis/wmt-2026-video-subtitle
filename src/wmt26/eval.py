@@ -38,6 +38,17 @@ def score_comet(
     return ckpt.predict(data, batch_size=8, progress_bar=False).system_score
 
 
+def score_comet_qe(
+    srcs: list[str], hyps: list[str], model: str = "Unbabel/wmt22-cometkiwi-da"
+) -> float:
+    """Reference-free QE (CometKiwi) — scores src+mt only, so it runs on the blind test set."""
+    from comet import download_model, load_from_checkpoint
+
+    ckpt = load_from_checkpoint(download_model(model))
+    data = [{"src": s, "mt": h} for s, h in zip(srcs, hyps)]
+    return ckpt.predict(data, batch_size=8, progress_bar=False).system_score
+
+
 def evaluate(
     srcs: list[str],
     hyp_cues: list[Cue],
