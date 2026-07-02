@@ -9,10 +9,10 @@ MODEL="${1:-tencent/Hy-MT2-7B}"
 # The model's native 262144 (256K) context needs ~8 GiB KV cache and OOMs. Subtitle
 # translation only sends one short cue + small rolling context, so 8192 is ample.
 MAX_LEN="${MAX_MODEL_LEN:-8192}"
-GPU_UTIL="${GPU_MEMORY_UTILIZATION:-0.95}"
+GPU_UTIL="${GPU_MEMORY_UTILIZATION:-0.85}"
 
 vllm serve "$MODEL" \
-  --tensor-parallel-size 1 \
+  --tensor-parallel-size 2 \
   --max-model-len "$MAX_LEN" \
   --gpu-memory-utilization "$GPU_UTIL"
   # --enable-lora \
