@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
 from pathlib import Path
 
 from wmt26.constraints import violation_rate
@@ -25,10 +26,12 @@ def main() -> None:
     p.add_argument("--ref", type=Path, help="reference SRTs; omit with --qe")
     p.add_argument("--qe", action="store_true", help="reference-free CometKiwi QE")
     p.add_argument("--no-comet", action="store_true")
+    p.add_argument("--out", type=Path, help="write per-file scores to this CSV")
     a = p.parse_args()
     if not a.qe and a.ref is None:
         p.error("--ref is required unless --qe is set")
 
+    rows = []
     for hyp_path in sorted(a.hyp.glob("*.srt")):
         name = hyp_path.name
         vid = name.rsplit("_", 1)[0]  # <vid>_en.srt -> <vid>
@@ -41,7 +44,9 @@ def main() -> None:
 
         if a.qe:
             qe = score_comet_qe(src, [c.text for c in hyp])
-            print(f"{name}: CometKiwi={qe:.4f} viol={violation_rate(hyp):.1%}")
+            viol = violation_rate(hyp)
+            print(f"{name}: CometKiwi={qe:.4f} viol={viol:.1%}")
+            rows.append({"file": name, "cometkiwi": f"{qe:.4f}", "viol": f"{viol:.4f}"})
             continue
 
         ref_path = a.ref / name
@@ -55,6 +60,17 @@ def main() -> None:
             f"{name}: BLEU={s.bleu:.2f} chrF={s.chrf:.2f} "
             f"COMET={comet} viol={s.violation_rate:.1%}"
         )
+        rows.append({
+            "file": name, "bleu": f"{s.bleu:.2f}", "chrf": f"{s.chrf:.2f}",
+            "comet": comet, "viol": f"{s.violation_rate:.4f}",
+        })
+
+    if a.out and rows:
+        with open(a.out, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=rows[0].keys())
+            w.writeheader()
+            w.writerows(rows)
+        print(f"wrote {a.out} ({len(rows)} rows)")
 
 
 if __name__ == "__main__":
