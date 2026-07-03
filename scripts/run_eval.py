@@ -12,11 +12,28 @@ from __future__ import annotations
 
 import argparse
 import csv
+from bisect import bisect_right
 from pathlib import Path
 
 from wmt26.constraints import violation_rate
 from wmt26.eval import evaluate, score_comet_qe
 from wmt26.subtitle_io import parse_srt
+
+
+def regroup_to_src(src_cues, hyp_cues) -> list[str]:
+    """Merge split hyp cues back to one string per src cue, aligned by time.
+
+    split_cue_if_needed keeps halves inside the parent's [start, end] window, so
+    each hyp cue is assigned to the src cue whose start it falls at or after.
+    """
+    starts = [c.start_ms for c in src_cues]
+    merged = [[] for _ in src_cues]
+    for h in hyp_cues:
+        i = bisect_right(starts, h.start_ms) - 1
+        if i < 0:
+            i = 0
+        merged[i].append(h.text)
+    return [" ".join(parts) for parts in merged]
 
 
 def main() -> None:
@@ -39,11 +56,16 @@ def main() -> None:
         if not src_path.exists():
             print(f"skip {name}: missing src")
             continue
-        src = [c.text for c in parse_srt(str(src_path))]
+        src_cues = parse_srt(str(src_path))
+        src = [c.text for c in src_cues]
         hyp = parse_srt(str(hyp_path))
 
         if a.qe:
-            qe = score_comet_qe(src, [c.text for c in hyp])
+            # Translation may split one src cue into several (split_cue_if_needed),
+            # so hyp has more cues than src. Regroup hyp back into src time windows
+            # to restore 1:1 alignment before positional QE scoring.
+            hyp_text = regroup_to_src(src_cues, hyp)
+            qe = score_comet_qe(src, hyp_text)
             viol = violation_rate(hyp)
             print(f"{name}: CometKiwi={qe:.4f} viol={viol:.1%}")
             rows.append({"file": name, "cometkiwi": f"{qe:.4f}", "viol": f"{viol:.4f}"})
