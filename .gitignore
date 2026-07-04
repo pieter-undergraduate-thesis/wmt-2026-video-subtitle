@@ -192,8 +192,13 @@ checkpoints/
 out/
 *.srt
 !tests/**/*.srt
+*.zip
 
 # Tooling
 .pytest_cache/
 .idea/
 .vscode/
+
+# results
+results/
+archive/
