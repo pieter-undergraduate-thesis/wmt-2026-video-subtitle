@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 DEFAULT_MODEL = "tencent/Hy-MT2-7B"
 DEFAULT_BASE_URL = "http://localhost:8000/v1"
 
-# Sampling params from the Hy-MT2 model card.
-SAMPLING = dict(temperature=0.7, top_p=0.6, max_tokens=512)
+# Greedy decoding — deterministic and stronger for MT than the card's sampling.
+SAMPLING = dict(temperature=0.0, top_p=0.6, max_tokens=512)
 EXTRA_BODY = dict(top_k=20, repetition_penalty=1.05)
 
 
