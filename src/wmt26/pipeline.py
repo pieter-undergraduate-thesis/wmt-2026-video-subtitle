@@ -1,16 +1,15 @@
-"""End-to-end Phase C pipeline: srt -> translate -> constrain -> srt.
+"""End-to-end Phase C pipeline: srt -> translate -> srt.
 
 flow per cue:
-  synopsis + recent-cue context  ->  prompt assembly
-                                  ->  Hy-MT2 inference (vLLM)
-                                  ->  constraint post-processor (split if needed)
-  then: re-index all cues and write the SRT.
+  synopsis context + recent-cue ICL examples  ->  prompt assembly
+                                              ->  Hy-MT2 inference (vLLM)
+  cues stay 1:1 with the source (no re-segmentation); then write the SRT.
 """
 from __future__ import annotations
 
 from typing import Callable
 
-from . import constraints, translate
+from . import translate
 from .context import RecentContext, build_context
 from .subtitle_io import Cue, parse_srt, write_srt
 
@@ -34,16 +33,15 @@ def translate_cues(
     recent = RecentContext(window=window)
     out: list[Cue] = []
 
-    for cue in cues:
-        ctx = build_context(synopsis, recent, synopsis_provider=synopsis_provider)
-        translated = translate_fn(cue.text, target, ctx, model=model, base_url=base_url)
-        recent.add(translated)
-        new_cue = Cue(cue.index, cue.start_ms, cue.end_ms, translated)
-        out.extend(constraints.split_cue_if_needed(new_cue))
+    for i, cue in enumerate(cues, start=1):
+        # Synopsis as background; recent cue pairs as few-shot ICL examples.
+        ctx = build_context(synopsis, None, synopsis_provider=synopsis_provider)
+        translated = translate_fn(
+            cue.text, target, ctx, examples=recent.pairs(), model=model, base_url=base_url
+        )
+        recent.add(cue.text, translated)
+        out.append(Cue(i, cue.start_ms, cue.end_ms, translated))
 
-    # Re-index after splits so the SRT numbering is contiguous.
-    for i, c in enumerate(out, start=1):
-        c.index = i
     return out
 
 

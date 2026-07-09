@@ -40,6 +40,27 @@ def context_prompt(source_text: str, target: str, context: str) -> str:
     )
 
 
+def few_shot_prompt(
+    source_text: str,
+    target: str,
+    examples: list[tuple[str, str]],
+    context: str | None = None,
+) -> str:
+    """In-context learning: show src->target example pairs before the real cue.
+
+    The pipeline feeds the video's own already-translated cues here, so style
+    and terminology stay consistent down the episode.
+    """
+    shots = "\n".join(f"{src} -> {tgt}" for src, tgt in examples)
+    ctx = f"Background information for context only:\n{context}\n\n" if context else ""
+    return (
+        f"{ctx}Here are example translations into {lang_name(target)}:\n{shots}\n\n"
+        f"Now translate the following text into {lang_name(target)} in the same "
+        f"style. Output only the translated result, with no additional "
+        f"explanation:\n{source_text}"
+    )
+
+
 def terminology_prompt(source_text: str, target: str, terms: dict[str, str]) -> str:
     """Character names / recurring proper nouns pinned to fixed translations."""
     glossary = "\n".join(f"{k} -> {v}" for k, v in terms.items())

@@ -40,17 +40,22 @@ def translate_cue(
     target: str,
     context: str | None = None,
     *,
+    examples: list[tuple[str, str]] | None = None,
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
     client: OpenAI | None = None,
 ) -> str:
-    """Translate one cue's text. Pass `context` to use the synopsis-aware prompt."""
+    """Translate one cue's text.
+
+    Pass `context` for the synopsis-aware prompt, `examples` for few-shot ICL.
+    """
     client = client or _client(base_url)
-    prompt = (
-        prompts.context_prompt(text, target, context)
-        if context
-        else prompts.default_prompt(text, target)
-    )
+    if examples:
+        prompt = prompts.few_shot_prompt(text, target, examples, context)
+    elif context:
+        prompt = prompts.context_prompt(text, target, context)
+    else:
+        prompt = prompts.default_prompt(text, target)
     return _complete(client, prompt, model)
 
 
