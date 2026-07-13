@@ -25,12 +25,15 @@ def _client(base_url: str = DEFAULT_BASE_URL) -> "OpenAI":
     return OpenAI(base_url=base_url, api_key="not-needed")
 
 
-def _complete(client: "OpenAI", prompt: str, model: str) -> str:
+def _complete(
+    client: "OpenAI", prompt: str, model: str, temperature: float | None = None
+) -> str:
+    sampling = {**SAMPLING, "temperature": temperature} if temperature is not None else SAMPLING
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         extra_body=EXTRA_BODY,
-        **SAMPLING,
+        **sampling,
     )
     return resp.choices[0].message.content.strip()
 
@@ -43,15 +46,22 @@ def translate_cue(
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
     client: OpenAI | None = None,
+    temperature: float | None = None,
+    register: str | None = None,
 ) -> str:
     """Translate one cue's text. Pass `context` to use the synopsis-aware prompt."""
     client = client or _client(base_url)
-    prompt = (
-        prompts.context_prompt(text, target, context)
-        if context
-        else prompts.default_prompt(text, target)
-    )
-    return _complete(client, prompt, model)
+    if register:
+        # register-aware path uses the combined builder; keeps the plain
+        # default/context prompts byte-stable when no register is set.
+        prompt = prompts.advanced_prompt(text, target, context=context, register=register)
+    else:
+        prompt = (
+            prompts.context_prompt(text, target, context)
+            if context
+            else prompts.default_prompt(text, target)
+        )
+    return _complete(client, prompt, model, temperature)
 
 
 def translate_batch(
