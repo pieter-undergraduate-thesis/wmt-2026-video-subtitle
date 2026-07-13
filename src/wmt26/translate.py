@@ -11,7 +11,7 @@ from . import prompts
 if TYPE_CHECKING:
     from openai import OpenAI
 
-DEFAULT_MODEL = "tencent/Hy-MT2-7B"
+DEFAULT_MODEL = "tencent/Hy-MT2-1.8B"
 DEFAULT_BASE_URL = "http://localhost:8000/v1"
 
 # Greedy decoding — deterministic and stronger for MT than the card's sampling.
@@ -25,12 +25,15 @@ def _client(base_url: str = DEFAULT_BASE_URL) -> "OpenAI":
     return OpenAI(base_url=base_url, api_key="not-needed")
 
 
-def _complete(client: "OpenAI", prompt: str, model: str) -> str:
+def _complete(
+    client: "OpenAI", prompt: str, model: str, temperature: float | None = None
+) -> str:
+    sampling = {**SAMPLING, "temperature": temperature} if temperature is not None else SAMPLING
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         extra_body=EXTRA_BODY,
-        **SAMPLING,
+        **sampling,
     )
     return resp.choices[0].message.content.strip()
 
@@ -44,19 +47,27 @@ def translate_cue(
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
     client: OpenAI | None = None,
+    temperature: float | None = None,
+    register: str | None = None,
 ) -> str:
     """Translate one cue's text.
 
     Pass `context` for the synopsis-aware prompt, `examples` for few-shot ICL.
     """
     client = client or _client(base_url)
+    if register:
+        # register-aware path uses the combined builder; keeps the plain
+        # default/context prompts byte-stable when no register is set.
+        prompt = prompts.advanced_prompt(text, target, context=context, register=register)
     if examples:
+        # few shot prompting
         prompt = prompts.few_shot_prompt(text, target, examples, context)
     elif context:
+        # ICL context prompt
         prompt = prompts.context_prompt(text, target, context)
     else:
         prompt = prompts.default_prompt(text, target)
-    return _complete(client, prompt, model)
+    return _complete(client, prompt, model, temperature)
 
 
 def translate_batch(

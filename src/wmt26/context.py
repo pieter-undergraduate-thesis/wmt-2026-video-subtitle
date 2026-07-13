@@ -42,10 +42,11 @@ def build_context(
     synopsis: str | None,
     recent: RecentContext | None,
     *,
+    prior_src: list[str] | None = None,
     synopsis_provider: Callable[[], str] | None = None,
     timeout_s: float = 5.0,
 ) -> str | None:
-    """Combine synopsis + recent-cue context into one block.
+    """Combine synopsis + prior source lines + recent-cue context into one block.
 
     Fallback switch: if a synopsis_provider (e.g. Zahra's SLM layer) is given
     but errors or hangs, fall through to whatever static context we have rather
@@ -65,6 +66,11 @@ def build_context(
 
     if synopsis:
         parts.append(synopsis.strip())
+    if prior_src:
+        joined = "\n".join(prior_src)
+        parts.append(
+            f"Prior source lines (context only, do not translate):\n{joined}"
+        )
     if recent is not None:
         rb = recent.block()
         if rb:
