@@ -11,7 +11,7 @@ from . import prompts
 if TYPE_CHECKING:
     from openai import OpenAI
 
-DEFAULT_MODEL = "tencent/Hy-MT2-7B"
+DEFAULT_MODEL = "tencent/Hy-MT2-1.8B"
 DEFAULT_BASE_URL = "http://localhost:8000/v1"
 
 # Sampling params from the Hy-MT2 model card.
