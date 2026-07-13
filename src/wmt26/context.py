@@ -12,19 +12,26 @@ from typing import Callable
 
 
 class RecentContext:
-    """Sliding window of the last N translated cue texts."""
+    """Sliding window of the last N (source, translation) cue pairs.
+
+    Pairs feed few-shot ICL: the video's own already-translated cues become the
+    examples, so terminology/style stay consistent down the episode.
+    """
 
     def __init__(self, window: int = 4):
-        self._buf: deque[str] = deque(maxlen=window)
+        self._buf: deque[tuple[str, str]] = deque(maxlen=window)
 
-    def add(self, translated_text: str) -> None:
-        self._buf.append(translated_text)
+    def add(self, source_text: str, translated_text: str) -> None:
+        self._buf.append((source_text, translated_text))
+
+    def pairs(self) -> list[tuple[str, str]]:
+        return list(self._buf)
 
     def block(self) -> str:
         """Prompt fragment, or '' if empty."""
         if not self._buf:
             return ""
-        joined = "\n".join(self._buf)
+        joined = "\n".join(f"{s} -> {t}" for s, t in self._buf)
         return (
             "Recent translated context (for consistency only, do not "
             f"re-translate):\n{joined}"

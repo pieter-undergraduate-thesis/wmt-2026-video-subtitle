@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 DEFAULT_MODEL = "tencent/Hy-MT2-1.8B"
 DEFAULT_BASE_URL = "http://localhost:8000/v1"
 
-# Sampling params from the Hy-MT2 model card.
-SAMPLING = dict(temperature=0.7, top_p=0.6, max_tokens=512)
+# Greedy decoding — deterministic and stronger for MT than the card's sampling.
+SAMPLING = dict(temperature=0.0, top_p=0.6, max_tokens=512)
 EXTRA_BODY = dict(top_k=20, repetition_penalty=1.05)
 
 
@@ -43,24 +43,30 @@ def translate_cue(
     target: str,
     context: str | None = None,
     *,
+    examples: list[tuple[str, str]] | None = None,
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
     client: OpenAI | None = None,
     temperature: float | None = None,
     register: str | None = None,
 ) -> str:
-    """Translate one cue's text. Pass `context` to use the synopsis-aware prompt."""
+    """Translate one cue's text.
+
+    Pass `context` for the synopsis-aware prompt, `examples` for few-shot ICL.
+    """
     client = client or _client(base_url)
     if register:
         # register-aware path uses the combined builder; keeps the plain
         # default/context prompts byte-stable when no register is set.
         prompt = prompts.advanced_prompt(text, target, context=context, register=register)
+    if examples:
+        # few shot prompting
+        prompt = prompts.few_shot_prompt(text, target, examples, context)
+    elif context:
+        # ICL context prompt
+        prompt = prompts.context_prompt(text, target, context)
     else:
-        prompt = (
-            prompts.context_prompt(text, target, context)
-            if context
-            else prompts.default_prompt(text, target)
-        )
+        prompt = prompts.default_prompt(text, target)
     return _complete(client, prompt, model, temperature)
 
 
