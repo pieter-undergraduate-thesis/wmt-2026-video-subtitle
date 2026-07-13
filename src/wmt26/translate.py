@@ -56,14 +56,14 @@ def translate_cue(
     """
     client = client or _client(base_url)
     if register:
-        # register-aware path uses the combined builder; keeps the plain
-        # default/context prompts byte-stable when no register is set.
-        prompt = prompts.advanced_prompt(text, target, context=context, register=register)
-    if examples:
-        # few shot prompting
+        # combined builder composes context + examples + register; keeps the
+        # plain default/context/few-shot prompts byte-stable when register unset.
+        prompt = prompts.advanced_prompt(
+            text, target, context=context, examples=examples, register=register
+        )
+    elif examples:
         prompt = prompts.few_shot_prompt(text, target, examples, context)
     elif context:
-        # ICL context prompt
         prompt = prompts.context_prompt(text, target, context)
     else:
         prompt = prompts.default_prompt(text, target)
