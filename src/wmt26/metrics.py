@@ -25,7 +25,7 @@ def score_xcomet(
     srcs: list[str],
     hyps: list[str],
     refs: list[str],
-    model: str = "Unbabel/XCOMET-XXL",
+    model: str = "Unbabel/wmt22-comet-da",
     batch_size: int = 8,
 ) -> dict:
     """Reference-based XCOMET-XXL. Returns {'system', 'segments'}.
