@@ -45,9 +45,8 @@ def translate_cues(
         translated = translate_fn(
             cue.text, target, ctx, examples=recent.pairs(), model=model, base_url=base_url, register=register
         )
-        recent.add(translated)
-        new_cue = Cue(cue.index, cue.start_ms, cue.end_ms, translated)
-        out.extend(constraints.split_cue_if_needed(new_cue))
+        recent.add(cue.text, translated)
+        out.append(Cue(cue.index, cue.start_ms, cue.end_ms, translated))
 
     return out
 
