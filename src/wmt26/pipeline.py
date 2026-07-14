@@ -33,9 +33,11 @@ def translate_cues(
     recent = RecentContext(window=window)
     out: list[Cue] = []
 
+    # Synopsis as background; recent cue pairs as few-shot ICL examples. The
+    # synopsis is fixed for the whole video, so resolve it once.
+    ctx = build_context(synopsis, None, synopsis_provider=synopsis_provider)
+
     for i, cue in enumerate(cues, start=1):
-        # Synopsis as background; recent cue pairs as few-shot ICL examples.
-        ctx = build_context(synopsis, None, synopsis_provider=synopsis_provider)
         translated = translate_fn(
             cue.text, target, ctx, examples=recent.pairs(), model=model, base_url=base_url
         )

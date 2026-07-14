@@ -5,9 +5,10 @@ description = "WMT26 Constrained Video Subtitle Translation (zh -> en/th/id/ms/z
 requires-python = ">=3.10"
 dependencies = [
     "srt>=3.5",
-    "openai>=1.0",          # vLLM exposes an OpenAI-compatible server
+    "openai>=1.0", # vLLM exposes an OpenAI-compatible server
     "sacrebleu>=2.4",
     "unbabel-comet>=2.2",
+    "loguru>=0.7.3",
 ]
 
 [project.optional-dependencies]
