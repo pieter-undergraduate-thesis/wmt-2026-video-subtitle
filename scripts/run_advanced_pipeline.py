@@ -9,6 +9,10 @@ matches zero_shot_translate.py so run_benchmark_eval.py scores it directly.
 Needs a running vLLM server (scripts/serve.sh) and CometKiwi weights for the
 reranker. Use --limit to try the first N source files before a full run.
 
+Resumable: a (video, lang) whose output .srt already exists is skipped, so an
+interrupted run picks up where it stopped by re-issuing the same command. Pass
+--overwrite to force a re-translate.
+
 Usage:
   python scripts/run_advanced_pipeline.py --in data/tests --out result/out_p1 --langs en id --limit 20
   python scripts/run_advanced_pipeline.py --in data/tests --out result/out_p1 --postedit --fewshot-pool data/zh_id.tsv
@@ -47,6 +51,15 @@ def run(args) -> None:
         synopsis = args.synopsis or synopsis_for_srt(srt_path)
 
         for lang in args.langs:
+            out_path = args.out_dir / f"{vid}_{lang}.srt"
+            # Resume: skip before build_glossary — that's an LLM pass per (video, lang),
+            # so checking any later would still pay for work we're throwing away.
+            # ponytail: existence, not validity. A run killed mid-write leaves a
+            # partial .srt this will happily skip — delete it or pass --overwrite.
+            if out_path.exists() and not args.overwrite:
+                print(f"skip {out_path} (exists)")
+                continue
+
             register = REGISTER_NOTES.get(lang)
             gloss = (
                 {} if args.no_glossary
@@ -70,7 +83,6 @@ def run(args) -> None:
                 cues, lang, synopsis=synopsis, register=register,
                 translate_fn=cand_translate, model=args.model, base_url=args.base_url,
             )
-            out_path = args.out_dir / f"{vid}_{lang}.srt"
             write_srt(out, str(out_path))
             print(f"wrote {out_path} ({len(out)} cues)")
 
@@ -85,6 +97,8 @@ def main() -> None:
     p.add_argument("--shots", type=int, default=5, help="few-shot examples per cue")
     p.add_argument("--postedit", action="store_true", help="add one post-edit pass")
     p.add_argument("--no-glossary", action="store_true", help="skip episode glossary")
+    p.add_argument("--overwrite", action="store_true",
+                   help="re-translate even if the output .srt exists (default: skip)")
     p.add_argument("--fewshot-pool", dest="fewshot_pool", type=Path,
                    help="zh<TAB>target TSV pool for few-shot retrieval")
     p.add_argument("--synopsis", default=None, help="override metadata synopsis")

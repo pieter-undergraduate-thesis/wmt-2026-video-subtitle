@@ -30,8 +30,9 @@ import sys
 import unicodedata
 from pathlib import Path
 
+from wmt26 import termdb
 from wmt26.eval import score_bleu_chrf, score_comet, score_comet_qe
-from wmt26.metrics import score_chrf_pp, score_gemba, score_xcomet
+from wmt26.metrics import score_chrf_pp, score_gemba, score_xcomet, term_recall
 from wmt26.subtitle_io import parse_srt
 
 # lang code -> (gt filename prefix, full name for GEMBA)
@@ -131,6 +132,8 @@ def main() -> None:
     p.add_argument("--gt", type=Path, default=Path("data/gt"))
     p.add_argument("--hyp", type=Path, required=True)
     p.add_argument("--langs", nargs="+", default=["en", "id"])
+    p.add_argument("--termdb", type=Path,
+                   help="report term recall (DB renderings actually used) against this JSONL")
     p.add_argument("--neural", action="store_true", help="XCOMET-XXL + CometKiwi (GPU)")
     p.add_argument("--gemba", action="store_true", help="GEMBA LLM-judge QE")
     p.add_argument("--gemba-backend", default="openai", choices=["openai", "vllm"])
@@ -145,6 +148,9 @@ def main() -> None:
         p.error(f"unsupported langs {bad}; known: {list(LANG_INFO)}")
 
     per_lang, skipped = collect(a.tests, a.gt, a.hyp, a.langs)
+    db = termdb.load(a.termdb) if a.termdb else None
+    if db:
+        print(f"loaded {len(db)} term entries from {a.termdb}")
     rows: list[dict] = []
 
     for lang in a.langs:
@@ -171,6 +177,13 @@ def main() -> None:
                "bleu": f"{bleu:.2f}", "chrf": f"{chrf:.2f}", "chrfpp": f"{chrfpp:.2f}",
                "empty_ref": sum(it["empty_ref"] for it in items)}
         print(f"  [corpus] BLEU={bleu:.2f} chrF={chrf:.2f} chrF++={chrfpp:.2f} ({len(hyps)} cues)")
+
+        if db:
+            # The metric to judge idiom/term post-editing on -- BLEU is expected to
+            # fall while idiom accuracy rises (IdiomKB: sacreBLEU 14.26 -> 9.64).
+            tr = term_recall(srcs, hyps, db, lang)
+            agg["term_recall"] = f"{tr:.4f}"
+            print(f"  [corpus] term_recall={tr:.4f}")
 
         if a.neural:
             xc = score_xcomet(srcs, hyps, refs)["system"]

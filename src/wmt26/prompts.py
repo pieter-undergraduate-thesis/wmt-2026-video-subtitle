@@ -7,6 +7,11 @@ Mirrors Hy-MT2's documented instruction scenarios. Rules from the model card:
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .termdb import Entry
+
 # WMT26 target languages -> full names for the prompt.
 LANG_NAMES = {
     "en": "English",
@@ -134,21 +139,66 @@ def glossary_prompt(source_text: str, target: str, synopsis: str | None = None) 
     )
 
 
+def _terms_block(terms: list["Entry"], target: str) -> str:
+    """Format matched term-DB entries for the post-edit prompt.
+
+    Only the target language's equivalents are shown — the other languages are
+    noise the model would have to ignore. Entries with no equivalent for this
+    target still earn their place if they carry a figurative meaning: meaning
+    injection alone is IdiomKB's core lever.
+    """
+    lines: list[str] = []
+    for t in terms:
+        eqs = t.equivalents.get(target) or []
+        if not eqs and not t.meaning_en:
+            continue
+        head = f"- {t.zh}"
+        if t.meaning_en:
+            head += f" [{t.meaning_en}]"
+        meta: list[str] = []
+        if t.category:
+            meta.append(f"category={t.category}")
+        if eqs:
+            meta.append(f'{lang_name(target)}="{" / ".join(eqs)}"')
+        if t.avoid:
+            meta.append("avoid: " + ", ".join(f'"{a}"' for a in t.avoid))
+        lines.append(f"{head} {'; '.join(meta)}" if meta else head)
+    return "\n".join(lines)
+
+
 def postedit_prompt(
     source_text: str,
     draft: str,
     target: str,
     *,
     register: str | None = None,
+    terms: list["Entry"] | None = None,
 ) -> str:
-    """Single refine pass: adequacy, register, glossary compliance, brevity."""
+    """Single refine pass: adequacy, register, glossary compliance, brevity.
+
+    `terms` are the term-DB entries matched in *this* source line — per-segment
+    injection only, so the prompt stays clean. The exact required rendering is
+    given rather than asked for: per Translate-and-Revise (arXiv:2407.13164),
+    feeding rule-detected constraints is what drives constraint completion up.
+    Output is byte-stable with the no-terms version when `terms` is empty/None.
+    """
     reg = f" {register}" if register else ""
+    block = _terms_block(terms, target) if terms else ""
+    rule = (
+        " Use the GLOSSARY below for the terms it lists: prefer the given "
+        "rendering and avoid the literal ones. If the draft is already correct, "
+        "return it unchanged."
+        if block
+        else ""
+    )
+    gloss = f"GLOSSARY (terms found in this line):\n{block}\n\n" if block else ""
     return (
         f"You are proofreading a {lang_name(target)} subtitle translation. Given "
         "the source and a draft, produce an improved translation: fix any "
         "inaccuracy or omission, keep it concise for on-screen reading, and "
-        f"ensure natural {lang_name(target)}.{reg} Output only the revised "
+        f"ensure natural {lang_name(target)}.{reg}{rule} Output only the revised "
         f"translation, no explanation:\n\n"
+        f"{gloss}"
         f"Source: {source_text}\n"
         f"Draft: {draft}"
     )

@@ -8,6 +8,33 @@ rest of the package so io/tests stay importable CPU-side.
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
+
+from . import termdb
+
+if TYPE_CHECKING:
+    from .termdb import TermDB
+
+
+def term_recall(
+    srcs: list[str], hyps: list[str], db: "TermDB", lang: str
+) -> float:
+    """Fraction of required term-DB renderings that actually appear in the output.
+
+    The constraint-conformance metric from the terminology-APE literature — the
+    number that moved 36.67% -> 72.88% (zh->en 28.33% -> 82.65%) in Moslem et
+    al., WMT23. Track this, not BLEU, when judging idiom/term post-editing:
+    IdiomKB saw sacreBLEU *fall* 14.26 -> 9.64 while idiom accuracy rose.
+
+    Entries with no equivalent for `lang` don't constrain anything, so they're
+    excluded from the denominator rather than counted as misses.
+    """
+    req = hit = 0
+    for s, h in zip(srcs, hyps):
+        entries = db.match(s)
+        req += termdb.required(entries, lang)
+        hit += termdb.hits(h, entries, lang)
+    return hit / req if req else 0.0
 
 
 def score_chrf_pp(hyps: list[str], refs: list[str]) -> float:

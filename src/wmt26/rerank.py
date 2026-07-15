@@ -36,15 +36,24 @@ def qe_scores(
     return list(ckpt.predict(data, batch_size=8, progress_bar=False).scores)
 
 
+def is_offtarget(text: str, target: str) -> bool:
+    """True if `text` leaked Chinese into a non-Chinese target.
+
+    Always False for Chinese targets (zh-TW legitimately contains Han). Split
+    out of offtarget_filter so single-string callers (postedit's accept gate)
+    get the predicate without the "keep all if empty" fallback below, which
+    would otherwise wave a lone off-target string straight through.
+    """
+    return not str(target).startswith("zh") and bool(_HAN_RE.search(text))
+
+
 def offtarget_filter(cands: list[str], target: str) -> list[str]:
     """Drop candidates with leaked Chinese for non-Chinese targets.
 
-    No-op for Chinese targets (zh-TW legitimately contains Han). If filtering
-    would empty the set, keep all — a bad candidate beats no candidate.
+    If filtering would empty the set, keep all — a bad candidate beats no
+    candidate. (That fallback is why single-item callers want is_offtarget.)
     """
-    if str(target).startswith("zh"):
-        return cands
-    kept = [c for c in cands if not _HAN_RE.search(c)]
+    kept = [c for c in cands if not is_offtarget(c, target)]
     return kept or cands
 
 
