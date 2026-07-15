@@ -74,3 +74,21 @@ pytest          # io roundtrip, constraint split, pipeline orchestration (no GPU
 - **th/id/ms fine-tuning deferred** — Hy-MT2 covers them zero-shot; measure the gap first.
 - **License blocker**: confirm Hy-MT2 derivative weights can be released under WMT26's
   unrestricted-non-commercial requirement before relying on a fine-tuned submission.
+
+
+<!-- 1. Install + serve the model
+pip install -e ".[serve]"        # base + vLLM (GPU)
+bash scripts/serve.sh            # vLLM OpenAI server on :8000
+Every translate script talks to that server, so it must be up first.
+
+2. Sample run first (the --limit flag you asked for)
+# advanced pipeline (candidates -> QE-rerank -> post-edit -> glossary), first 20 files
+python scripts/run_advanced_pipeline.py --in data/tests --out result/out_p1 --langs en id --limit 20
+- --limit 20 = only the first 20 source .srt files. Bump to --limit 30, then drop it entirely for the full run.
+- Stages default on: candidates (--n 6) + QE-rerank + episode glossary. Off by default: --postedit and --fewshot-pool data/zh_id.tsv — add each as a separate A/B.
+- Same --limit also works on the baseline: python scripts/zero_shot_translate.py --in data/tests --out out --limit 20
+
+3. Score it
+python scripts/run_benchmark_eval.py --hyp result/out_p1 --neural --langs en id
+A 20-file output dir just scores those 20 (the rest are skipped as missing hyp — no eval change needed). --neural adds XCOMET + CometKiwi (GPU + HF token); drop it for BLEU/chrF only. Compare XCOMET up / chrF not
+collapsing vs the baseline results/hymt2-7b-out. -->

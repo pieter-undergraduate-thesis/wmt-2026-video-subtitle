@@ -188,6 +188,8 @@ venv/
 
 # Big / generated artifacts — never commit
 data/
+# `data/` above matches at any depth — keep test fixtures tracked
+!tests/data/
 checkpoints/
 out/
 *.srt

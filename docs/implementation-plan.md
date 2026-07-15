@@ -1,6 +1,12 @@
 # Implementation Plan: Training-Free Quality Pipeline for WMT26 Subtitle MT (zh→en/id)
 
-*Derived from [`docs/research.md`](./research.md), mapped onto the current codebase. Planning document only — nothing here is executed yet.*
+*Derived from [`docs/research.md`](./research.md), mapped onto the current codebase.*
+
+**Status: implemented.** `src/wmt26/{candidates,rerank,glossary,postedit,fewshot}.py`
+and `scripts/run_advanced_pipeline.py` exist and match Phase 1's design here
+(Phases 2–3 stretch goals also built). This file is kept as the original
+design record — see [`docs/PIPELINE.md`](./PIPELINE.md) for the current,
+maintained module reference and behavior.
 
 ## Context
 `docs/research.md` concludes the biggest training-free wins over the current zero-shot single-pass baseline are, in priority order:
