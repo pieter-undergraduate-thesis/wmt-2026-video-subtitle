@@ -11,11 +11,11 @@ from . import prompts
 if TYPE_CHECKING:
     from openai import OpenAI
 
-DEFAULT_MODEL = "tencent/Hy-MT2-7B"
+DEFAULT_MODEL = "tencent/Hy-MT2-1.8B"
 DEFAULT_BASE_URL = "http://localhost:8000/v1"
 
-# Sampling params from the Hy-MT2 model card.
-SAMPLING = dict(temperature=0.7, top_p=0.6, max_tokens=512)
+# Greedy decoding — deterministic and stronger for MT than the card's sampling.
+SAMPLING = dict(temperature=0.0, top_p=0.6, max_tokens=512)
 EXTRA_BODY = dict(top_k=20, repetition_penalty=1.05)
 
 
@@ -25,12 +25,15 @@ def _client(base_url: str = DEFAULT_BASE_URL) -> "OpenAI":
     return OpenAI(base_url=base_url, api_key="not-needed")
 
 
-def _complete(client: "OpenAI", prompt: str, model: str) -> str:
+def _complete(
+    client: "OpenAI", prompt: str, model: str, temperature: float | None = None
+) -> str:
+    sampling = {**SAMPLING, "temperature": temperature} if temperature is not None else SAMPLING
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         extra_body=EXTRA_BODY,
-        **SAMPLING,
+        **sampling,
     )
     return resp.choices[0].message.content.strip()
 
@@ -40,18 +43,31 @@ def translate_cue(
     target: str,
     context: str | None = None,
     *,
+    examples: list[tuple[str, str]] | None = None,
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
     client: OpenAI | None = None,
+    temperature: float | None = None,
+    register: str | None = None,
 ) -> str:
-    """Translate one cue's text. Pass `context` to use the synopsis-aware prompt."""
+    """Translate one cue's text.
+
+    Pass `context` for the synopsis-aware prompt, `examples` for few-shot ICL.
+    """
     client = client or _client(base_url)
-    prompt = (
-        prompts.context_prompt(text, target, context)
-        if context
-        else prompts.default_prompt(text, target)
-    )
-    return _complete(client, prompt, model)
+    if register:
+        # combined builder composes context + examples + register; keeps the
+        # plain default/context/few-shot prompts byte-stable when register unset.
+        prompt = prompts.advanced_prompt(
+            text, target, context=context, examples=examples, register=register
+        )
+    elif examples:
+        prompt = prompts.few_shot_prompt(text, target, examples, context)
+    elif context:
+        prompt = prompts.context_prompt(text, target, context)
+    else:
+        prompt = prompts.default_prompt(text, target)
+    return _complete(client, prompt, model, temperature)
 
 
 def translate_batch(

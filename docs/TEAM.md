@@ -10,6 +10,7 @@ this, [PIPELINE.md](PIPELINE.md) for how the code works.
 |---|---|---|
 | **Dzaki** | Phase A (zero-shot baseline, eval) + Phase B (LoRA fine-tuning) | `src/wmt26/eval.py`, `finetune/`, benchmark runs via `scripts/zero_shot_translate.py` / `scripts/run_eval.py` |
 | **Pieter** | Shared infra + Phase C (inference/pipeline) | `src/wmt26/{subtitle_io,prompts,translate,constraints,context,pipeline,metadata}.py`, `scripts/serve.sh`, `scripts/run_pipeline.py` |
+| *(unassigned)* | Advanced training-free quality pipeline (candidates/rerank/glossary/post-edit/few-shot) | `src/wmt26/{candidates,rerank,glossary,postedit,fewshot}.py`, `scripts/run_advanced_pipeline.py` — follows Pieter's Phase C surface, not formally assigned |
 | **Zahra** | SLM context-reasoning layer (upstream input) | Plugs into `context.build_context` via `synopsis_provider` — see contract below. Not yet integrated. |
 
 Nobody blocks anybody by default: Dzaki's fine-tuned checkpoint is just a
@@ -23,10 +24,14 @@ These are the interfaces to code against — change them and you break someone
 else's work, so treat edits here as cross-team, not local.
 
 **`Cue` / `list[Cue] -> list[Cue]`** (`subtitle_io.py`)
-Every stage — parsing, translating, constraint-splitting, writing — takes and
-returns `list[Cue]`. This is the one structure Dzaki's eval scripts and
-Pieter's pipeline both read/write. Don't add a second subtitle representation
-anywhere; extend `Cue` instead if a new field is needed.
+Every stage — parsing, translating, writing — takes and returns `list[Cue]`.
+This is the one structure Dzaki's eval scripts and Pieter's pipeline both
+read/write. Don't add a second subtitle representation anywhere; extend `Cue`
+instead if a new field is needed. **Note:** `pipeline.translate_cues` keeps
+cues 1:1 with the source (no constraint-splitting, no re-indexing) — don't
+assume downstream that its output count/indices can differ from the input.
+`constraints.split_cue_if_needed` still exists and is still called, just from
+`scripts/zero_shot_translate.py` directly, one layer above `pipeline.py`.
 
 **`<vid>_zh.srt` + `<vid>_metadata.json` pairing** (`metadata.py`)
 Source and metadata files share a video-id prefix in the same directory.

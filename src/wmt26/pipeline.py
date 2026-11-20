@@ -1,16 +1,15 @@
-"""End-to-end Phase C pipeline: srt -> translate -> constrain -> srt.
+"""End-to-end Phase C pipeline: srt -> translate -> srt.
 
 flow per cue:
-  synopsis + recent-cue context  ->  prompt assembly
-                                  ->  Hy-MT2 inference (vLLM)
-                                  ->  constraint post-processor (split if needed)
-  then: re-index all cues and write the SRT.
+  synopsis context + recent-cue ICL examples  ->  prompt assembly
+                                              ->  Hy-MT2 inference (vLLM)
+  cues stay 1:1 with the source (no re-segmentation); then write the SRT.
 """
 from __future__ import annotations
 
 from typing import Callable
 
-from . import constraints, translate
+from . import translate
 from .context import RecentContext, build_context
 from .subtitle_io import Cue, parse_srt, write_srt
 
@@ -22,28 +21,33 @@ def translate_cues(
     synopsis: str | None = None,
     synopsis_provider: Callable[[], str] | None = None,
     window: int = 4,
+    src_window: int = 6,
+    register: str | None = None,
     model: str = translate.DEFAULT_MODEL,
     base_url: str = translate.DEFAULT_BASE_URL,
     translate_fn: Callable[..., str] = translate.translate_cue,
 ) -> list[Cue]:
     """Translate cues sequentially with rolling context, then split + re-index.
 
-    `translate_fn` is injectable so tests can run the whole pipeline without a
-    live vLLM server.
+    Context per cue = synopsis + the prior `src_window` source lines + the
+    rolling window of already-translated cues. `register` (a formality note) is
+    forwarded to `translate_fn`. `translate_fn` is injectable so tests can run
+    the whole pipeline without a live vLLM server.
     """
     recent = RecentContext(window=window)
     out: list[Cue] = []
 
-    for cue in cues:
-        ctx = build_context(synopsis, recent, synopsis_provider=synopsis_provider)
-        translated = translate_fn(cue.text, target, ctx, model=model, base_url=base_url)
-        recent.add(translated)
-        new_cue = Cue(cue.index, cue.start_ms, cue.end_ms, translated)
-        out.extend(constraints.split_cue_if_needed(new_cue))
+    for i, cue in enumerate(cues):
+        prior_src = [c.text for c in cues[max(0, i - src_window):i]] or None
+        ctx = build_context(
+            synopsis, recent, prior_src=prior_src, synopsis_provider=synopsis_provider
+        )
+        translated = translate_fn(
+            cue.text, target, ctx, examples=recent.pairs(), model=model, base_url=base_url, register=register
+        )
+        recent.add(cue.text, translated)
+        out.append(Cue(cue.index, cue.start_ms, cue.end_ms, translated))
 
-    # Re-index after splits so the SRT numbering is contiguous.
-    for i, c in enumerate(out, start=1):
-        c.index = i
     return out
 
 

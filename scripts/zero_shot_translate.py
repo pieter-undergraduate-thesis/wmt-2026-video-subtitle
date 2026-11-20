@@ -18,9 +18,12 @@ from wmt26.metadata import synopsis_for_srt
 from wmt26.subtitle_io import Cue, parse_srt, write_srt
 
 
-def run(in_dir: Path, out_dir: Path, langs: list[str], synopsis: str | None) -> None:
+def run(in_dir: Path, out_dir: Path, langs: list[str], synopsis: str | None,
+        limit: int = 0) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     srt_files = sorted(in_dir.glob("*.srt"))
+    if limit:
+        srt_files = srt_files[:limit]
     if not srt_files:
         raise SystemExit(f"no .srt files in {in_dir}")
 
@@ -49,8 +52,9 @@ def main() -> None:
     p.add_argument("--out", dest="out_dir", default=Path("out"), type=Path)
     p.add_argument("--langs", nargs="+", default=["en", "th", "id", "ms", "zh-TW"])
     p.add_argument("--synopsis", default=None, help="optional shared context string")
+    p.add_argument("--limit", type=int, default=0, help="only the first N source files (0 = all)")
     a = p.parse_args()
-    run(a.in_dir, a.out_dir, a.langs, a.synopsis)
+    run(a.in_dir, a.out_dir, a.langs, a.synopsis, a.limit)
 
 
 if __name__ == "__main__":
